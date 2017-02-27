@@ -22,7 +22,7 @@ public class LogisitcRegression {
 	static String TRAINING_DATA_FILE_NAME = "train.csv";
 	static String TEST_DATA_FILE_NAME = "test.csv";
 	//change this according to your system
-	static String TRAINED_MODEL_FILE_PATH = "/Users/haris/Desktop/model";
+	static String TRAINED_MODEL_FILE_PATH = "/Users/haris/Desktop/logistic_regression_model";
 	
 	static final long SPLIT_SEED = new Random().nextLong();
 	static final String COLUMN_SCORE_1 = "score1";
