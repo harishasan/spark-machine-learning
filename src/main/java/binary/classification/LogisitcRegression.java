@@ -1,5 +1,6 @@
 package binary.classification;
 
+import java.io.File;
 import java.util.Random;
 
 import org.apache.spark.SparkConf;
@@ -18,9 +19,10 @@ import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 
 public class LogisitcRegression {
-	static final String TRAINING_DATA_FILE_PATH = "/Users/haris/Desktop/train.csv";
-	static final String TRAINED_MODEL_FILE_PATH = "/Users/haris/Desktop/model";
-	static final String TEST_DATA_FILE_PATH = "/Users/haris/Desktop/test.csv";
+	static String TRAINING_DATA_FILE_NAME = "train.csv";
+	static String TEST_DATA_FILE_NAME = "test.csv";
+	//change this according to your system
+	static String TRAINED_MODEL_FILE_PATH = "/Users/haris/Desktop/model";
 	
 	static final long SPLIT_SEED = new Random().nextLong();
 	static final String COLUMN_SCORE_1 = "score1";
@@ -40,11 +42,15 @@ public class LogisitcRegression {
 	
 	public static void main(String[] args) throws Exception{
 				
+		String resourceDirecyoryPath = getResourcesDirectoryPath();
+		String trainingDataFilePath = resourceDirecyoryPath + TRAINING_DATA_FILE_NAME;
+		String testDataFilePath = resourceDirecyoryPath + TEST_DATA_FILE_NAME;
+		
 		SparkConf sparkConfig = new SparkConf();
 		sparkConfig.setMaster("local");
 		sparkConfig.setAppName("binary-classfication");
 		SparkSession sparkSession = SparkSession.builder().config(sparkConfig).getOrCreate();
-		Dataset<Row> dataSet = loadDataSetFromFile(sparkSession, TRAINING_DATA_FILE_PATH);
+		Dataset<Row> dataSet = loadDataSetFromFile(sparkSession, trainingDataFilePath);
 	    
 		Dataset<Row>[] splittedDataSet = dataSet.randomSplit(new double[]{0.7, 0.3}, SPLIT_SEED);
 		Dataset<Row> trainingDataSet = splittedDataSet[0]; 
@@ -85,14 +91,14 @@ public class LogisitcRegression {
 	    logisticRegressionModel.save(TRAINED_MODEL_FILE_PATH);
 	    
 	    System.out.println("<<<<<<<<<<<<<<<<<<<<<<< TEST >>>>>>>>>>>>>>>>>>>>>>>>");
-	    Dataset<Row> testDataSet = loadDataSetFromFile(sparkSession, TEST_DATA_FILE_PATH);
+	    Dataset<Row> testDataSet = loadDataSetFromFile(sparkSession, testDataFilePath);
 		LogisticRegressionModel trainedLogisticRegressionModel = LogisticRegressionModel.load(TRAINED_MODEL_FILE_PATH);
 		Dataset<Row> testDataSetPredictions = trainedLogisticRegressionModel.transform(testDataSet);
 		printPredictionResult(testDataSetPredictions);
 	    
 	    sparkSession.stop();
 	}
-	
+
 	private static Dataset<Row> loadDataSetFromFile(SparkSession spark, String inputFile) throws Exception {
 		Dataset<Row> dataSet = spark.read().schema(SCHEMA).
 				format("com.databricks.spark.csv").
@@ -122,5 +128,10 @@ public class LogisitcRegression {
 	    }
 		
 		System.out.println("Correct predictions: " + correct + "/" + total);
+	}
+	
+	private static String getResourcesDirectoryPath() {
+		String tempFilePath = new File(".").getAbsolutePath();
+		return tempFilePath.substring(0, tempFilePath.length() -1) + "src/main/resources/";
 	}
 }
