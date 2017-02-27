@@ -94,9 +94,15 @@ public class LogisitcRegression {
 	}
 	
 	private static Dataset<Row> loadDataSetFromFile(SparkSession spark, String inputFile) throws Exception {
-		Dataset<Row> dataSet = spark.read().schema(SCHEMA).format("com.databricks.spark.csv").option("header", "true").load(inputFile);
+		Dataset<Row> dataSet = spark.read().schema(SCHEMA).
+				format("com.databricks.spark.csv").
+				option("header", "true").
+				load(inputFile);
+		
 		dataSet = spark.createDataFrame(dataSet.javaRDD(), SCHEMA);
-	    VectorAssembler vectorAssembler = new VectorAssembler().setInputCols(new String[]{COLUMN_SCORE_1, COLUMN_SCORE_2}).setOutputCol(COLUMN_INPUT_FEATURES);
+	    VectorAssembler vectorAssembler = new VectorAssembler().
+	    		setInputCols(new String[]{COLUMN_SCORE_1, COLUMN_SCORE_2}).
+	    		setOutputCol(COLUMN_INPUT_FEATURES);
 	    dataSet = vectorAssembler.transform(dataSet);
 		return dataSet;
 	}
@@ -113,11 +119,6 @@ public class LogisitcRegression {
 			
 			if(prediction.equals(actual))
 				correct ++;
-			
-			System.out.println(String.valueOf(row.get(row.fieldIndex("score1"))) + "," + 
-					String.valueOf(row.get(row.fieldIndex("score2"))) + "," + 
-					String.valueOf(row.get(row.fieldIndex("prediction"))).replace(".0", "")
-			);
 	    }
 		
 		System.out.println("Correct predictions: " + correct + "/" + total);
