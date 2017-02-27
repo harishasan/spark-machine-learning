@@ -70,6 +70,8 @@ public class RandomForest {
     		dataPoint -> new Tuple2<>(randomForestModel.predict(dataPoint.features()), dataPoint.label())
         );
         
+        printFScore(predictionAndLabels);
+        
         //cross validation error = correct/actual
         double crossValidationError = predictionAndLabels.filter(pAndL -> !pAndL._1().equals(pAndL._2())).count() / (double) crossValidationData.count();
         System.out.println("Cross validation Error: " + crossValidationError);
@@ -83,6 +85,24 @@ public class RandomForest {
         System.out.println("Test Error: " + testSetError );
         
         sparkContext.close();
+	}
+
+	private static void printFScore(JavaPairRDD<Double, Double> predictionAndLabels) {
+		
+		/*
+		 * Is algo correct (T/F)
+		 * What algo predicted (positive/negative)?
+		 */
+		
+		long truePositives = predictionAndLabels.filter(pAndL -> pAndL._1.equals(pAndL._2) && pAndL._1.equals(1.0)).count();
+		long falsePositives = predictionAndLabels.filter(pAndL -> !pAndL._1.equals(pAndL._2) && pAndL._1.equals(1.0)).count();
+		long falseNegatives = predictionAndLabels.filter(pAndL -> !pAndL._1.equals(pAndL._2) && pAndL._1.equals(0.0)).count();
+		double precision = (double) truePositives/(truePositives + falsePositives);
+		double recall = (double) truePositives/(truePositives + falseNegatives);
+		double fScore = 2 * precision * recall /(precision + recall);
+		
+		System.out.println("FScore: " + fScore);
+		
 	}
 
 	@SuppressWarnings("serial")
