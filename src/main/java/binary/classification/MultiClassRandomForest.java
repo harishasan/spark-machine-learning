@@ -107,11 +107,6 @@ public class MultiClassRandomForest {
         System.out.println("Cross validation Error: " + crossValidationError);
 
         System.out.println("======= Test ==========");
-        //clear the populated maps
-        classLabelsMap.clear();
-        flagMap.clear();
-        protocolTypeMap.clear();
-        serviceMap.clear();
         
         JavaRDD<String> testData = sparkContext.textFile(testDataFilePath);
         final String testHeaderRow = testData.first();
