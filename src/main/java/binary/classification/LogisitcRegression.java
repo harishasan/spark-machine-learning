@@ -1,9 +1,11 @@
 package binary.classification;
 
-import java.io.File;
 import java.util.Random;
 
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.ml.classification.BinaryLogisticRegressionSummary;
 import org.apache.spark.ml.classification.LogisticRegression;
 import org.apache.spark.ml.classification.LogisticRegressionModel;
@@ -18,9 +20,13 @@ import org.apache.spark.sql.types.Metadata;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 
+import scala.Tuple2;
+import utils.Utils;
+
 public class LogisitcRegression {
-	static String TRAINING_DATA_FILE_NAME = "train.csv";
-	static String TEST_DATA_FILE_NAME = "test.csv";
+	
+	static String TRAINING_DATA_FILE_NAME = "scores_dataset/train.csv";
+	static String TEST_DATA_FILE_NAME = "scores_dataset/test.csv";
 	//change this according to your system
 	static String TRAINED_MODEL_FILE_PATH = "/Users/haris/Desktop/logistic_regression_model";
 	
@@ -30,7 +36,7 @@ public class LogisitcRegression {
 	static final String COLUMN_PREDICTION = "result";
 	static final String COLUMN_INPUT_FEATURES = "inputFeatures";
 	
-	static final double LOGISTIC_REGRESSION_REGULARIZATION = 0.01;
+	static final double LOGISTIC_REGRESSION_REGULARIZATION = 0.3;
 	static final int LOGISTIC_REGRESSION_ITERATIONS = 100;
 	static final double LOGISTIC_REGRESSION_STEP_SIZE = 0.001;
 	
@@ -42,7 +48,7 @@ public class LogisitcRegression {
 	
 	public static void main(String[] args) throws Exception{
 				
-		String resourceDirecyoryPath = getResourcesDirectoryPath();
+		String resourceDirecyoryPath = Utils.getResourcesDirectoryPath();
 		String trainingDataFilePath = resourceDirecyoryPath + TRAINING_DATA_FILE_NAME;
 		String testDataFilePath = resourceDirecyoryPath + TEST_DATA_FILE_NAME;
 		
@@ -57,9 +63,9 @@ public class LogisitcRegression {
 		Dataset<Row> crossValidationDataSet = splittedDataSet[1];
 		
 		LogisticRegression logisticRegression = new LogisticRegression().
-				setMaxIter(LOGISTIC_REGRESSION_ITERATIONS).
-				setRegParam(LOGISTIC_REGRESSION_ITERATIONS).
-				setElasticNetParam(LOGISTIC_REGRESSION_STEP_SIZE);
+			setMaxIter(LOGISTIC_REGRESSION_ITERATIONS).
+			setRegParam(LOGISTIC_REGRESSION_ITERATIONS).
+			setElasticNetParam(LOGISTIC_REGRESSION_STEP_SIZE);
 		
 	    logisticRegression.setLabelCol(COLUMN_PREDICTION);
 	    logisticRegression.setFeaturesCol(COLUMN_INPUT_FEATURES);
@@ -77,6 +83,10 @@ public class LogisitcRegression {
 	    BinaryLogisticRegressionSummary binaryLogisticRegressionSummary = (BinaryLogisticRegressionSummary) logisticRegressionTrainingSummary;
 	    // Get the threshold corresponding to the maximum F-Measure and return LogisticRegression with
 	    // this selected threshold.
+	    
+	    //maximum 1, higher the better
+	    //https://en.wikipedia.org/wiki/Receiver_operating_characteristic
+	    System.out.println("Area under ROC: " + binaryLogisticRegressionSummary.areaUnderROC());
 	    Dataset<Row> fScore = binaryLogisticRegressionSummary.fMeasureByThreshold();
 	    double maximumFScore = fScore.select(functions.max("F-Measure")).head().getDouble(0);
 	    double bestThreshold = fScore.where(fScore.col("F-Measure").equalTo(maximumFScore)).select("threshold").head().getDouble(0);
@@ -85,7 +95,9 @@ public class LogisitcRegression {
 	    
 	    System.out.println("<<<<<<<<<<<<<<<<<<<<<<< CROSS VALIDATION >>>>>>>>>>>>>>>>>>>>>>>>");
 	    //make the predictions on cross validation set
-	    Dataset<Row> crossValidationDataSetPredictions = logisticRegressionModel.transform(crossValidationDataSet);
+	    Dataset<Row> crossValidationDataSetPredictions = logisticRegressionModel.transform(crossValidationDataSet);	    
+	    JavaPairRDD<Double, Double> crossValidationPredictionRDD = convertToJavaRDDPair(crossValidationDataSetPredictions);
+	    Utils.printFScoreBinaryClassfication(crossValidationPredictionRDD);
 	    printPredictionResult(crossValidationDataSetPredictions);
 	    //saved the trained model on disk for later use
 	    logisticRegressionModel.save(TRAINED_MODEL_FILE_PATH);
@@ -99,16 +111,33 @@ public class LogisitcRegression {
 	    sparkSession.stop();
 	}
 
+	private static JavaPairRDD<Double, Double> convertToJavaRDDPair(Dataset<Row> rowsData) {
+		JavaRDD<Row> rowsRdd = rowsData.toJavaRDD();
+		JavaPairRDD<Double, Double> pairRDD = rowsRdd.mapToPair(RowToTuplePairer);
+		return pairRDD;
+	}
+	
+	@SuppressWarnings("serial")
+	public static final PairFunction<Row, Double, Double> RowToTuplePairer =
+		 new PairFunction<Row, Double, Double>() {
+	 		public Tuple2<Double, Double> call(Row row) throws Exception {
+	 			Double prediction = Double.valueOf(String.valueOf(row.get(row.fieldIndex("prediction"))));
+				Double actual = Double.valueOf(String.valueOf(row.get(row.fieldIndex(COLUMN_PREDICTION))));
+	 			return new Tuple2<Double, Double>(prediction, actual);
+ 		}
+	};
+	
 	private static Dataset<Row> loadDataSetFromFile(SparkSession spark, String inputFile) throws Exception {
 		Dataset<Row> dataSet = spark.read().schema(SCHEMA).
-				format("com.databricks.spark.csv").
-				option("header", "true").
-				load(inputFile);
+			format("com.databricks.spark.csv").
+			option("header", "true").
+			load(inputFile);
 		
 		dataSet = spark.createDataFrame(dataSet.javaRDD(), SCHEMA);
 	    VectorAssembler vectorAssembler = new VectorAssembler().
-	    		setInputCols(new String[]{COLUMN_SCORE_1, COLUMN_SCORE_2}).
-	    		setOutputCol(COLUMN_INPUT_FEATURES);
+    		setInputCols(new String[]{COLUMN_SCORE_1, COLUMN_SCORE_2}).
+    		setOutputCol(COLUMN_INPUT_FEATURES);
+	    
 	    dataSet = vectorAssembler.transform(dataSet);
 		return dataSet;
 	}
@@ -128,10 +157,5 @@ public class LogisitcRegression {
 	    }
 		
 		System.out.println("Correct predictions: " + correct + "/" + total);
-	}
-	
-	private static String getResourcesDirectoryPath() {
-		String tempFilePath = new File(".").getAbsolutePath();
-		return tempFilePath.substring(0, tempFilePath.length() -1) + "src/main/resources/";
 	}
 }

@@ -1,6 +1,5 @@
 package binary.classification;
 
-import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -16,11 +15,12 @@ import org.apache.spark.mllib.regression.LabeledPoint;
 import org.apache.spark.mllib.tree.model.RandomForestModel;
 
 import scala.Tuple2;
+import utils.Utils;
 
-public class RandomForest {
+public class BinaryRandomForest {
 	
-	static String TRAINING_DATA_FILE_NAME = "train_without_header.csv";
-	static String TEST_DATA_FILE_NAME = "test_without_header.csv";
+	static String TRAINING_DATA_FILE_NAME = "scores_dataset/train.csv";
+	static String TEST_DATA_FILE_NAME = "scores_dataset/test.csv";
 	
 	static final long SPLIT_SEED = new Random().nextLong();
 	
@@ -38,13 +38,16 @@ public class RandomForest {
 		sparkConfig.setMaster("local");
 		sparkConfig.setAppName("binary-classfication");
 		
-		String resourceDirecyoryPath = getResourcesDirectoryPath();
+		String resourceDirecyoryPath = Utils.getResourcesDirectoryPath();
 		String trainingDataFilePath = resourceDirecyoryPath + TRAINING_DATA_FILE_NAME;
 		String testDataFilePath = resourceDirecyoryPath + TEST_DATA_FILE_NAME;
 		
 		
 		JavaSparkContext sparkContext = new JavaSparkContext(sparkConfig);
         JavaRDD<String> data = sparkContext.textFile(trainingDataFilePath);
+        //remove the header row from data
+        final String headerRow = data.first();
+		data = data.filter(item -> !item.equals(headerRow));
         JavaRDD<LabeledPoint> formattedData = data.map(getFunctionToConvertLineToLabelledPoint());
         
         JavaRDD<LabeledPoint>[] splits = formattedData.randomSplit(new double[]{0.7, 0.3}, SPLIT_SEED);
@@ -70,39 +73,25 @@ public class RandomForest {
     		dataPoint -> new Tuple2<>(randomForestModel.predict(dataPoint.features()), dataPoint.label())
         );
         
-        printFScore(predictionAndLabels);
-        
+        System.out.println("<<<<<<<<<<<<<<<<<<<<<<< Cross validation set stats >>>>>>>>>>>>>>>>>>>>>>>>");
+        Utils.printFScoreBinaryClassfication(predictionAndLabels);
         //cross validation error = correct/actual
         double crossValidationError = predictionAndLabels.filter(pAndL -> !pAndL._1().equals(pAndL._2())).count() / (double) crossValidationData.count();
         System.out.println("Cross validation Error: " + crossValidationError);
 
+        System.out.println("<<<<<<<<<<<<<<<<<<<<<<< Test set stats >>>>>>>>>>>>>>>>>>>>>>>>");
         JavaRDD<String> testData = sparkContext.textFile(testDataFilePath);
+        //remove the header row from data
+        final String testHeaderRow = testData.first();
+		testData = testData.filter(item -> !item.equals(testHeaderRow ));
         JavaRDD<LabeledPoint> formattedTestData = testData.map(getFunctionToConvertLineToLabelledPoint());
         JavaPairRDD<Double, Double> testPredictionAndLabels = formattedTestData.mapToPair(
     		dataPoint -> new Tuple2<>(randomForestModel.predict(dataPoint.features()), dataPoint.label())
 		);
         double testSetError = testPredictionAndLabels.filter(pAndL -> !pAndL._1().equals(pAndL._2())).count() / (double) crossValidationData.count();
         System.out.println("Test Error: " + testSetError );
-        
+        Utils.printFScoreBinaryClassfication(testPredictionAndLabels);
         sparkContext.close();
-	}
-
-	private static void printFScore(JavaPairRDD<Double, Double> predictionAndLabels) {
-		
-		/*
-		 * Is algo correct (T/F)
-		 * What algo predicted (positive/negative)?
-		 */
-		
-		long truePositives = predictionAndLabels.filter(pAndL -> pAndL._1.equals(pAndL._2) && pAndL._1.equals(1.0)).count();
-		long falsePositives = predictionAndLabels.filter(pAndL -> !pAndL._1.equals(pAndL._2) && pAndL._1.equals(1.0)).count();
-		long falseNegatives = predictionAndLabels.filter(pAndL -> !pAndL._1.equals(pAndL._2) && pAndL._1.equals(0.0)).count();
-		double precision = (double) truePositives/(truePositives + falsePositives);
-		double recall = (double) truePositives/(truePositives + falseNegatives);
-		double fScore = 2 * precision * recall /(precision + recall);
-		
-		System.out.println("FScore: " + fScore);
-		
 	}
 
 	@SuppressWarnings("serial")
@@ -118,14 +107,8 @@ public class RandomForest {
 				double label = Double.parseDouble(parts[2]);
 				
 				Vector featureVector = Vectors.dense(new double[]{score1, score2});  
-						//(org.apache.spark.mllib.linalg.Vector) Vectors.dense(score1, score2);
 		        return new LabeledPoint(label, featureVector);
 		    }
 		};
-	}
-
-	private static String getResourcesDirectoryPath() {
-		String tempFilePath = new File(".").getAbsolutePath();
-		return tempFilePath.substring(0, tempFilePath.length() -1) + "src/main/resources/";
 	}
 }
