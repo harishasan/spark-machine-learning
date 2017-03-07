@@ -29,7 +29,10 @@ public class MultiClassRandomForest {
 	static final String FEATURE_SUBSET_STRATEGY = "auto";
 	static final String IMPURITY = "gini";
 	static final int MAX_DEPTH = 4; 
-	static final int MAX_BINS = 100;
+	//Maximum number of bins used for discretizing continuous features and for choosing how 
+	//to split on features at each node. More bins give higher granularity. 
+	//Must be >= 2 and >= number of categories in any categorical feature. (default = 32)
+	static final int MAX_BINS = 32;
 	static final int NUMBER_OF_FEATURES = 41;
 	
 	/**
