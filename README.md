@@ -77,10 +77,10 @@ System.out.println("maximum FScore: " + maximumFScore);
 ```
 I use the initially separated cross validation set to find accuracy of our trained model and print the results.
 ```
-Dataset crossValidationDataSetPredictions = logisticRegressionModel.transform(crossValidationDataSet);	    
-	    JavaPairRDD<Double, Double> crossValidationPredictionRDD = convertToJavaRDDPair(crossValidationDataSetPredictions);
-    Utils.printFScoreBinaryClassfication(crossValidationPredictionRDD);
-    printPredictionResult(crossValidationDataSetPredictions);
+Dataset crossValidationDataSetPredictions = logisticRegressionModel.transform(crossValidationDataSet);
+JavaPairRDD<Double, Double> crossValidationPredictionRDD = convertToJavaRDDPair(crossValidationDataSetPredictions);
+Utils.printFScoreBinaryClassfication(crossValidationPredictionRDD);
+printPredictionResult(crossValidationDataSetPredictions);
 ```
 Results look like this in my case, which are not bad for a start.
 ```
@@ -92,7 +92,7 @@ Recall: 1.0
 FScore: 0.88
 Correct predictions: 22/25
 ```
-Let's plot the results to get a visual intuition on how our algorithm did.
+Let's plot the results to get a visual intuition on how algorithm did.
 ![selection_049-e1488866192141](https://user-images.githubusercontent.com/1760859/31045721-376bcfaa-a603-11e7-88ec-b11f62e80066.png)
 
 
